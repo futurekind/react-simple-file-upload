@@ -1,4 +1,11 @@
+//@flow
 import React from 'react';
 import ReactDOM from 'react-dom';
 
-ReactDOM.render(<h1>Hallow</h1>, document.getElementById('root'));
+const $mountPoint: ?HTMLElement = document.querySelector(
+    '[data-app="simple-file-upload"]'
+);
+
+if ($mountPoint) {
+    ReactDOM.render(<h1>Hallow</h1>, $mountPoint);
+}

@@ -8,6 +8,7 @@
         "react-scripts": "1.1.5"
     },
     "scripts": {
+        "prebuild": "yarn run flow check",
         "start": "react-scripts start",
         "build": "react-scripts build",
         "test": "react-scripts test --env=jsdom",
