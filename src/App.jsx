@@ -1,7 +1,10 @@
 //@flow
 import * as React from 'react';
 
+type Error = 'UNKNOWN' | 'MAX_FILE_SIZE';
+
 type Props = {
+    uploadScript?: string,
     triggerBtnClassName?: string,
     triggerBtnLabel?: string,
     acceptedFileFormats?: string,
@@ -10,15 +13,18 @@ type Props = {
     isUploadingClassName?: string,
     doneUploadingMessage?: string,
     doneUploadingClassName?: string,
-    failUploadingMessage?: string,
     failUploadingClassName?: string,
+    failUploadingMessage?: {
+        [key: Error]: string,
+    },
+    inputHiddenName?: string,
 };
 
 type State = {
     file: ?File,
-    isUploading: boolean,
-    doneUploading: boolean,
-    failUploading: boolean,
+    uploading: 'IDLE' | 'IN-PROGRESS' | 'DONE' | 'FAIL',
+    errorCode: ?Error,
+    urlToFile: ?string,
 };
 
 class App extends React.PureComponent<Props, State> {
@@ -26,16 +32,26 @@ class App extends React.PureComponent<Props, State> {
 
     state = {
         file: null,
-        isUploading: false,
-        doneUploading: false,
-        failUploading: false,
+        uploading: 'IDLE',
+        errorCode: null,
+        urlToFile: null,
     };
 
     render() {
+        if (!this.props.uploadScript) return null;
+
         return (
             <React.Fragment>
                 {this.renderFileInput()} {this.renderButton()}{' '}
                 {this.renderFileList()}
+                {this.props.inputHiddenName &&
+                    this.state.uploading === 'DONE' && (
+                        <input
+                            type="hidden"
+                            name={this.props.inputHiddenName}
+                            value={this.state.urlToFile}
+                        />
+                    )}
             </React.Fragment>
         );
     }
@@ -72,25 +88,39 @@ class App extends React.PureComponent<Props, State> {
     }
 
     renderFileList() {
-        const { file, isUploading, doneUploading, failUploading } = this.state;
+        const { file, uploading, errorCode } = this.state;
         let uploadingClassName;
         let message;
 
         if (!file) return null;
 
-        if (isUploading) {
+        if (uploading === 'IN-PROGRESS') {
             uploadingClassName = this.props.isUploadingClassName;
             message = this.props.isUploadingMessage;
         }
 
-        if (doneUploading) {
+        if (uploading === 'DONE') {
             uploadingClassName = this.props.doneUploadingClassName;
             message = this.props.doneUploadingMessage;
         }
 
-        if (failUploading) {
+        if (uploading === 'FAIL') {
             uploadingClassName = this.props.failUploadingClassName;
-            message = this.props.failUploadingMessage;
+
+            if (
+                this.props.failUploadingMessage &&
+                this.props.failUploadingMessage.hasOwnProperty(errorCode)
+            ) {
+                message = (
+                    <React.Fragment>
+                        {/* $FlowFixMe */}
+                        {this.props.failUploadingMessage[errorCode]}
+                        <span onClick={this.handleReset}>
+                            Erneut versuchen?
+                        </span>
+                    </React.Fragment>
+                );
+            }
         }
 
         return (
@@ -103,6 +133,15 @@ class App extends React.PureComponent<Props, State> {
         );
     }
 
+    handleReset = () => {
+        this.setState({
+            file: null,
+            uploading: 'IDLE',
+            errorCode: null,
+            urlToFile: null,
+        });
+    };
+
     handleTriggerClick = () => {
         if (this.fileEl) {
             this.fileEl.click();
@@ -110,10 +149,57 @@ class App extends React.PureComponent<Props, State> {
     };
 
     handleFileChange = (e: SyntheticEvent<HTMLInputElement>) => {
-        this.setState({
-            file: e.currentTarget.files[0],
-        });
+        this.setState(
+            {
+                file: e.currentTarget.files[0],
+            },
+            () => {
+                this.handleUpload();
+            }
+        );
     };
+
+    handleUpload() {
+        const formData = new FormData();
+
+        this.setState({
+            uploading: 'IN-PROGRESS',
+        });
+
+        if (this.state.file) {
+            formData.append('file', this.state.file);
+        }
+
+        if (this.props.uploadScript) {
+            fetch(this.props.uploadScript, {
+                method: 'POST',
+                body: formData,
+            })
+                .then(resp => resp.json())
+                .then(data => {
+                    console.log(data);
+                    if (data.status === 'OK') {
+                        this.setState({
+                            uploading: 'DONE',
+                            urlToFile: data.filename,
+                        });
+                    } else {
+                        this.setState({
+                            uploading: 'FAIL',
+                            errorCode: 'UNKNOWN',
+                        });
+                    }
+                })
+                .catch(e => {
+                    console.error(e);
+
+                    this.setState({
+                        uploading: 'FAIL',
+                        errorCode: 'UNKNOWN',
+                    });
+                });
+        }
+    }
 }
 
 export default App;
