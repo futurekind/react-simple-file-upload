@@ -145,7 +145,9 @@ class App extends React.PureComponent<Props, State> {
         });
     };
 
-    handleTriggerClick = () => {
+    handleTriggerClick = (e: SyntheticEvent<HTMLButtonElement>) => {
+        e.preventDefault();
+
         if (this.fileEl) {
             this.fileEl.click();
         }
