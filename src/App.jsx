@@ -8,6 +8,7 @@ type Props = {
     triggerBtnClassName?: string,
     triggerBtnLabel?: string,
     acceptedFileFormats?: string,
+    allowedFileSizeInMB?: number,
     filesClassName?: string,
     isUploadingMessage?: string,
     isUploadingClassName?: string,
@@ -26,6 +27,8 @@ type State = {
     errorCode: ?Error,
     urlToFile: ?string,
 };
+
+const toMB = totalsize => totalsize / Math.pow(1024, 2);
 
 class App extends React.PureComponent<Props, State> {
     fileEl: ?HTMLInputElement = null;
@@ -149,26 +152,32 @@ class App extends React.PureComponent<Props, State> {
     };
 
     handleFileChange = (e: SyntheticEvent<HTMLInputElement>) => {
-        this.setState(
-            {
+        const file = e.currentTarget.files[0];
+        const allowedSizeinMB = this.props.allowedFileSizeInMB || 5;
+
+        if (toMB(file.size) <= allowedSizeinMB) {
+            this.setState({
                 file: e.currentTarget.files[0],
-            },
-            () => {
-                this.handleUpload();
-            }
-        );
+            });
+
+            this.handleUpload(file);
+        } else {
+            this.setState({
+                file: e.currentTarget.files[0],
+                uploading: 'FAIL',
+                errorCode: 'MAX_FILE_SIZE',
+            });
+        }
     };
 
-    handleUpload() {
+    handleUpload(file: File) {
         const formData = new FormData();
 
         this.setState({
             uploading: 'IN-PROGRESS',
         });
 
-        if (this.state.file) {
-            formData.append('file', this.state.file);
-        }
+        formData.append('file', file);
 
         if (this.props.uploadScript) {
             fetch(this.props.uploadScript, {
@@ -177,7 +186,6 @@ class App extends React.PureComponent<Props, State> {
             })
                 .then(resp => resp.json())
                 .then(data => {
-                    console.log(data);
                     if (data.status === 'OK') {
                         this.setState({
                             uploading: 'DONE',
