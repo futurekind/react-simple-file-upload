@@ -17,5 +17,8 @@
         "tabWidth": 4,
         "trailingComma": "es5",
         "singleQuote": true
+    },
+    "devDependencies": {
+        "flow-bin": "^0.81.0"
     }
 }
